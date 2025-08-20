@@ -17,6 +17,7 @@ ui <- fluidPage(
       uiOutput("x_ui"),
       uiOutput("x2_ui"),
       uiOutput("group_ui"),
+      uiOutput("strata_ui"),
       uiOutput("xvar_ui"),
       numericInput("n_workers", "并行工作线程 n_workers", value = 1, min = 1, step = 1),
       actionButton("run", "开始建模", class = "btn-primary"),
@@ -68,7 +69,7 @@ server <- function(input, output, session) {
       else if (ext == "tsv") readr::read_tsv(input$file$datapath, guess_max = 10000)
       else validate("仅支持 .csv/.tsv/.txt")
     } else if (isTRUE(input$use_example)) {
-      if (identical(input$method, "coxph")) {
+      if (!is.null(input$method) && input$method %in% c("coxph","survreg","clogit","cch")) {
         if (!requireNamespace("survival", quietly = TRUE))
           validate("请先安装 survival 包：install.packages('survival')")
         d <- survival::lung
@@ -100,17 +101,25 @@ server <- function(input, output, session) {
     req(dataset())
     cols <- names(dataset())
     
-    if (identical(input$method, "coxph")) {
+    if (!is.null(input$method) && input$method %in% c("coxph","survreg","clogit","cch")) {
       output$y_block_ui <- renderUI({
         tagList(
           selectInput("y_time", "生存时间列（time）", choices = cols),
           selectInput("y_status", "结局状态列（0=截尾, 1=事件）", choices = cols)
         )
       })
+      if (identical(input$method, "clogit")) {
+        output$strata_ui <- renderUI({
+          selectInput("y_strata", "匹配分层变量（strata）", choices = cols)
+        })
+      } else {
+        output$strata_ui <- renderUI({ NULL })
+      }
     } else {
       output$y_block_ui <- renderUI({
         selectInput("y", "因变量 Y", choices = cols)
       })
+      output$strata_ui <- renderUI({ NULL })
     }
     
     output$x_ui <- renderUI({
@@ -120,7 +129,7 @@ server <- function(input, output, session) {
       selectizeInput("x2", "控制变量（可选）", choices = cols, multiple = TRUE)
     })
     output$group_ui <- renderUI({
-      selectInput("group_by", "分组变量（可选）", choices = c("无"="__none__", cols), selected = "__none__")
+      selectInput("group_by", "组变量（可选）", choices = c("无"="__none__", cols), selected = "__none__")
     })
     output$xvar_ui <- renderUI({
       selectInput("xvar", "拟合线横轴变量（visreg）", choices = cols)
@@ -135,12 +144,17 @@ server <- function(input, output, session) {
     dat <- dataset()
     group_by <- if (!is.null(input$group_by) && input$group_by != "__none__") input$group_by else NULL
     
-    y_vec <- if (identical(input$method, "coxph")) {
+    y_vec <- if (!is.null(input$method) && input$method %in% c("coxph","survreg","clogit","cch")) {
       req(input$y_time, input$y_status)
       st <- dat[[input$y_status]]
       if (!all(na.omit(unique(st)) %in% c(0,1)))
-        showNotification("提醒：Cox 的 status 列应为 0/1（0=截尾,1=事件）。", type = "warning")
-      c(input$y_time, input$y_status)
+        showNotification("提醒：生存状态列应为 0/1（0=截尾,1=事件）。", type = "warning")
+      if (identical(input$method, "clogit")) {
+        req(input$y_strata)
+        list(c(input$y_time, input$y_status), strata = input$y_strata)
+      } else {
+        c(input$y_time, input$y_status)
+      }
     } else {
       req(input$y); input$y
     }
