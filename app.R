@@ -82,7 +82,8 @@ server <- function(input, output, session) {
         } else if (identical(input$method, "clogit")) {
           if (!requireNamespace("survival", quietly = TRUE))
             validate("请先安装 survival 包：install.packages('survival')")
-          d <- survival::infert
+          data("infert", package = "survival")
+          d <- infert
           d$status <- as.integer(d$case)
           d$time <- 1
           d
