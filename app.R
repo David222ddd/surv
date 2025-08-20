@@ -111,7 +111,21 @@ server <- function(input, output, session) {
   # 2) 方法
   output$method_ui <- renderUI({
     sel <- tryCatch(br_avail_methods(), error = function(e) c("gaussian","binomial","poisson","coxph"))
-    selectInput("method", "建模方法", choices = sel, selected = sel[1])
+    method_desc <- c(
+      gaussian = "连续因变量线性回归",
+      binomial = "0/1 因变量逻辑回归",
+      poisson  = "计数数据泊松回归",
+      coxph    = "生存数据 Cox 比例风险模型",
+      survreg  = "生存数据参数回归",
+      clogit   = "匹配病例对照条件逻辑回归",
+      cch      = "病例-队列设计生存模型"
+    )
+    desc <- method_desc[names(method_desc) %in% sel]
+    help <- paste(names(desc), desc, sep = "：", collapse = "； ")
+    tagList(
+      selectInput("method", "建模方法", choices = sel, selected = sel[1]),
+      helpText(help)
+    )
   })
   
   # 3) 动态 UI
