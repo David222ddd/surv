@@ -234,7 +234,8 @@ server <- function(input, output, session) {
     if (!requireNamespace("visreg", quietly = TRUE)) {
       plot.new(); text(0.5, 0.5, "请安装 visreg 包以显示拟合线：install.packages('visreg')")
     } else {
-      br_show_fitted_line(breg_obj(), xvar = input$xvar)
+      fit <- if (exists("br_get_model")) br_get_model(breg_obj()) else breg_obj()
+      visreg::visreg(fit, xvar = input$xvar, data = dataset())
     }
   })
   
