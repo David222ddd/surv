@@ -11,6 +11,7 @@ ui <- fluidPage(
     sidebarPanel(
       fileInput("file", "上传 CSV/TSV 数据", accept = c(".csv", ".tsv", ".txt")),
       checkboxInput("use_example", "没有数据？使用内置示例", value = TRUE),
+      helpText("示例数据仅用于演示，系统会根据所选方法加载相应公开数据。"),
       hr(),
       uiOutput("method_ui"),
       uiOutput("y_block_ui"),
@@ -69,14 +70,31 @@ server <- function(input, output, session) {
       else if (ext == "tsv") readr::read_tsv(input$file$datapath, guess_max = 10000)
       else validate("仅支持 .csv/.tsv/.txt")
     } else if (isTRUE(input$use_example)) {
-      if (!is.null(input$method) && input$method %in% c("coxph","survreg","clogit","cch")) {
-        if (!requireNamespace("survival", quietly = TRUE))
-          validate("请先安装 survival 包：install.packages('survival')")
-        d <- survival::lung
-        d$status <- ifelse(d$status == 2, 1L, 0L)  # 0=截尾,1=事件
-        d$sex <- factor(d$sex, levels = c(1,2), labels = c("Male","Female"))
-        d$ph.ecog <- factor(d$ph.ecog)
-        d
+      if (!is.null(input$method)) {
+        if (input$method %in% c("coxph", "survreg", "cch")) {
+          if (!requireNamespace("survival", quietly = TRUE))
+            validate("请先安装 survival 包：install.packages('survival')")
+          d <- survival::lung
+          d$status <- ifelse(d$status == 2, 1L, 0L)  # 0=截尾,1=事件
+          d$sex <- factor(d$sex, levels = c(1,2), labels = c("Male","Female"))
+          d$ph.ecog <- factor(d$ph.ecog)
+          d
+        } else if (identical(input$method, "clogit")) {
+          if (!requireNamespace("survival", quietly = TRUE))
+            validate("请先安装 survival 包：install.packages('survival')")
+          d <- survival::infert
+          d$status <- as.integer(d$case)
+          d$time <- 1
+          d
+        } else if (input$method %in% c("gamma", "inverse.gaussian")) {
+          datasets::ChickWeight
+        } else if (identical(input$method, "nls")) {
+          datasets::Puromycin
+        } else if (identical(input$method, "aov")) {
+          datasets::PlantGrowth
+        } else {
+          mtcars
+        }
       } else {
         mtcars
       }
